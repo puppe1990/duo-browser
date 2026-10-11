@@ -89,10 +89,18 @@ volta a pertencer ao macOS e o navegador do Dell não recebe comandos.
 ## Brave do perfil atual (experimental)
 
 A extensão `brave-extension/` permite controlar uma nova aba do Brave no perfil
-onde está instalada. No controle Duo, use **Usar meu Brave (experimental)**.
+onde está instalada. No controle Duo, use **Usar / reativar meu Brave**.
 O YouTube abre no Brave, usando a sessão desse perfil; o Duo espelha a imagem
 no Dell e encaminha o mouse HID e o teclado virtual via Chrome DevTools Protocol.
 A janela de conexão da extensão precisa permanecer aberta.
+
+Se o Brave encerrar o debugger da aba (por exemplo, ao cancelar o aviso de
+depuração), o Duo oculta a imagem congelada, libera o mouse e informa a desconexão.
+Clique **Usar / reativar meu Brave** para reconectar à mesma aba e reativar o mouse.
+A reconexão exige esse comando explícito; o Duo não desfaz um cancelamento sozinho.
+O teste da extensão também verifica clique e digitação depois de desconectar e
+reconectar à mesma aba. A conexão WebSocket continuar aberta não significa que
+a aba ainda aceita eventos.
 
 Para instalar: abra `brave://extensions`, ative **Modo do desenvolvedor**, clique
 **Carregar sem compactação** e escolha `brave-extension`. A extensão exige a

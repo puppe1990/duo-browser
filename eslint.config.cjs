@@ -10,7 +10,11 @@ module.exports = [
     languageOptions: { globals: globals.browser },
   },
   {
-    files: ['brave-extension/protocol.js', 'brave-extension/bridge.js'],
+    files: [
+      'brave-extension/protocol.js',
+      'brave-extension/bridge.js',
+      'brave-extension/debugger-session.js',
+    ],
     languageOptions: { globals: { module: 'readonly' } },
   },
   {

@@ -1,4 +1,4 @@
-/* global chrome */
+/* global chrome, BraveSession */
 async function connectDuoBridge() {
   const query = new URLSearchParams(location.search);
   const port = Number(query.get('bridge'));
@@ -18,14 +18,29 @@ async function connectDuoBridge() {
   status('Conectando ao Duo…');
   socket.onerror = () => status('Falha ao conectar WebSocket local do Duo');
   let target;
+  let session;
+  let dimensions;
   let timer;
   let capturing = false;
   const send = (message) => {
     if (socket.readyState === WebSocket.OPEN)
       socket.send(JSON.stringify(message));
   };
-  const command = (method, params = {}) =>
-    chrome.debugger.sendCommand(target, method, params);
+  const command = (method, params = {}) => session.command(method, params);
+  const detached = (reason) => {
+    clearInterval(timer);
+    status('Brave desconectado; clique “Usar / reativar meu Brave” no Duo');
+    send({ kind: 'detached', reason });
+  };
+  async function activate() {
+    await session.attach();
+    await command('Page.enable');
+    await command('Emulation.setDeviceMetricsOverride', dimensions);
+    clearInterval(timer);
+    timer = setInterval(capture, 200);
+    status('Brave conectado ao Duo');
+    send({ kind: 'connected' });
+  }
   socket.onopen = () => status('Conectado ao Duo; aguardando aba');
   let sequence = Promise.resolve();
   socket.onmessage = (event) => {
@@ -38,36 +53,41 @@ async function connectDuoBridge() {
             active: false,
           });
           target = { tabId: tab.id };
-          await chrome.debugger.attach(target, '1.3');
-          await command('Page.enable');
-          await command('Emulation.setDeviceMetricsOverride', {
+          session = new BraveSession(chrome.debugger, tab.id, detached);
+          dimensions = {
             width: message.width,
             height: message.height,
             deviceScaleFactor: 1,
             mobile: false,
-          });
-          timer = setInterval(capture, 200);
-          status('Brave conectado ao Duo');
+          };
+          await activate();
           return;
         }
-        if (target) await dispatchDuoInput(message, command);
+        if (message.kind === 'reconnect' && session) {
+          await activate();
+          return;
+        }
+        if (target && session.attached)
+          await dispatchDuoInput(message, command);
       } catch (error) {
-        status(`Brave: ${error.message}`);
-        send({ kind: 'error', message: error.message });
+        if (session?.attached) {
+          status(`Brave: ${error.message}`);
+          send({ kind: 'error', message: error.message });
+        } else detached('attach_failed');
       }
     });
   };
   async function capture() {
-    if (capturing) return;
+    if (capturing || !session?.attached) return;
     capturing = true;
     try {
       const frame = await command('Page.captureScreenshot', {
         format: 'jpeg',
         quality: 65,
       });
-      send({ kind: 'frame', image: frame.data });
+      if (session.attached) send({ kind: 'frame', image: frame.data });
     } catch (error) {
-      send({ kind: 'error', message: error.message });
+      if (session?.attached) send({ kind: 'error', message: error.message });
     } finally {
       capturing = false;
     }
@@ -77,7 +97,7 @@ async function connectDuoBridge() {
     document.querySelector('#status').textContent =
       'Duo desconectado. Pode fechar esta janela.';
     if (target) {
-      await chrome.debugger.detach(target).catch(() => {});
+      await session?.close();
       await chrome.tabs.remove(target.tabId).catch(() => {});
     }
   };

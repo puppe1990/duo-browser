@@ -261,7 +261,10 @@ final class BrowserPanel: NSObject, WKNavigationDelegate {
       web.loadHTMLString("", baseURL: nil)
     }
     braveImage.image = image
+    braveImage.isHidden = false
   }
+
+  func hideBraveFrame() { braveImage.isHidden = true }
 
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
     guard onBraveCommand == nil else { return }

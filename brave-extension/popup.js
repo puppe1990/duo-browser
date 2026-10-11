@@ -1,4 +1,4 @@
-/* global chrome, testBraveInput */
+/* global chrome, testBraveInput, testBraveReconnect, BraveSession */
 const testButton = document.querySelector('#test');
 const testStatus = document.querySelector('#status');
 testButton.onclick = async () => {
@@ -10,8 +10,9 @@ testButton.onclick = async () => {
     });
     await waitForPage(tab.id);
     await testBraveInput(chrome.debugger, tab.id);
+    await testBraveReconnect(chrome.debugger, tab.id, BraveSession);
     testStatus.textContent =
-      'Passou: clique real e digitação em aba de segundo plano. A integração com o Duo ainda está pendente.';
+      'Passou: clique e digitação após desconectar e reconectar à mesma aba do Brave.';
   } catch (error) {
     testStatus.textContent = `Teste falhou: ${error.message}. Confira a aba criada e tente novamente.`;
   } finally {
