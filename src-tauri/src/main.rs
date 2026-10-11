@@ -58,9 +58,9 @@ fn open_browser(app: tauri::AppHandle, session: tauri::State<NativeSession>) -> 
 
 #[tauri::command]
 fn mouse_command(command: String, session: tauri::State<NativeSession>) -> Result<(), String> {
-    if !["capture", "release", "quit"].contains(&command.as_str()) {
+    if !["capture", "release", "quit", "brave"].contains(&command.as_str()) {
         return Err(format!(
-            "Comando recebido: {command}; esperado capture, release ou quit."
+            "Comando recebido: {command}; esperado capture, release, quit ou brave."
         ));
     }
     let mut child_slot = session.child.lock().map_err(|e| e.to_string())?;

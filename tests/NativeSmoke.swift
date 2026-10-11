@@ -92,6 +92,24 @@ final class SmokeApp: NSObject, NSApplicationDelegate {
         fputs("FAIL: Released capture must reject USB input\n", stderr)
         exit(1)
       }
+      var braveClick: (Double, Double)?
+      browser.onBraveCommand = { kind, x, y, _ in
+        if kind == "click" { braveClick = (x, y) }
+      }
+      browser.setCaptureActive(true)
+      browser.panel.sendEvent(trackpadClick)
+      guard braveClick == nil else {
+        fputs("FAIL: Trackpad dispatched an event to Brave\n", stderr)
+        exit(1)
+      }
+      browser.input(page: 9, usage: 1, value: 1)
+      guard let braveClick, abs(braveClick.0 - 20) < 1, abs(braveClick.1 - 20) < 1 else {
+        fputs(
+          "FAIL: HID click viewport expected (20,20) within one pixel, received \(String(describing: braveClick))\n",
+          stderr)
+        exit(1)
+      }
+      browser.setCaptureActive(false)
       browser.panel.close()
       print(
         "PASS: USB-only seat input, trackpad isolation, capture release and WKWebView typing without focus change"

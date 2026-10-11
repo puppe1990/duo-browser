@@ -24,6 +24,7 @@ async function run(action) {
 document.querySelector('#open').onclick = () =>
   run(() => invoke('open_browser'));
 for (const [id, command] of [
+  ['brave', 'brave'],
   ['capture', 'capture'],
   ['release', 'release'],
   ['quit', 'quit'],

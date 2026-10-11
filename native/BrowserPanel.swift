@@ -22,12 +22,15 @@ final class BrowserPanel: NSObject, WKNavigationDelegate {
   let panel: SeatPanel
   let web: WKWebView
   var onLoaded: (() -> Void)?
+  var onBraveCommand: ((String, Double, Double, Any) -> Void)?
+  private let braveImage = NSImageView()
   private let status = NSTextField(
     labelWithString: "Separação desativada · ative o mouse exclusivo no controle Duo")
   private let address = NSTextField(labelWithString: "https://www.youtube.com")
   private let pointer = NSView()
   private(set) var cursor: SeatCursor
   private var captureActive = false
+  var isCaptureActive: Bool { captureActive }
   private var addressSelected = false
   private var shifted = false
   private var timer: Timer?
@@ -125,15 +128,23 @@ final class BrowserPanel: NSObject, WKNavigationDelegate {
     }
   }
 
-  @objc private func back() { web.goBack() }
-  @objc private func reload() { web.reload() }
+  @objc private func back() {
+    if let onBraveCommand { onBraveCommand("back", 0, 0, "") } else { web.goBack() }
+  }
+  @objc private func reload() {
+    if let onBraveCommand { onBraveCommand("reload", 0, 0, "") } else { web.reload() }
+  }
   @objc private func navigate() {
     guard let url = browserURL(address.stringValue) else {
       setStatus("Endereço inválido: use http/https ou uma busca.")
       return
     }
     addressSelected = false
-    web.load(URLRequest(url: url))
+    if let onBraveCommand {
+      onBraveCommand("navigate", 0, 0, url.absoluteString)
+    } else {
+      web.load(URLRequest(url: url))
+    }
   }
 
   @objc private func pressKey(_ sender: NSButton) {
@@ -216,6 +227,13 @@ final class BrowserPanel: NSObject, WKNavigationDelegate {
   }
 
   private func send(_ kind: String, key: Any = "") {
+    if let onBraveCommand, let content = panel.contentView {
+      let y = cursor.y - (content.bounds.height - web.frame.maxY)
+      if kind == "key" || (y >= 0 && y < web.frame.height) {
+        onBraveCommand(kind, cursor.x, y, key)
+      }
+      return
+    }
     guard let content = panel.contentView,
       let encoded = try? JSONSerialization.data(withJSONObject: [
         kind, cursor.x, cursor.y - (content.bounds.height - web.frame.maxY), key,
@@ -233,7 +251,20 @@ final class BrowserPanel: NSObject, WKNavigationDelegate {
     decisionHandler(["https", "http", "about"].contains(scheme) ? .allow : .cancel)
   }
 
+  func showBraveFrame(_ bytes: Data) {
+    guard let image = NSImage(data: bytes), let content = panel.contentView else { return }
+    if braveImage.superview == nil {
+      braveImage.frame = web.frame
+      braveImage.imageScaling = .scaleAxesIndependently
+      content.addSubview(braveImage, positioned: .below, relativeTo: pointer)
+      web.isHidden = true
+      web.loadHTMLString("", baseURL: nil)
+    }
+    braveImage.image = image
+  }
+
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+    guard onBraveCommand == nil else { return }
     if let url = webView.url { address.stringValue = url.absoluteString }
     onLoaded?()
   }

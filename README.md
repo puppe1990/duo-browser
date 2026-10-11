@@ -85,3 +85,41 @@ volta a pertencer ao macOS e o navegador do Dell não recebe comandos.
 ## Screenshot
 
 ![Screenshot](docs/screenshot.png)
+
+## Brave do perfil atual (experimental)
+
+A extensão `brave-extension/` permite controlar uma nova aba do Brave no perfil
+onde está instalada. No controle Duo, use **Usar meu Brave (experimental)**.
+O YouTube abre no Brave, usando a sessão desse perfil; o Duo espelha a imagem
+no Dell e encaminha o mouse HID e o teclado virtual via Chrome DevTools Protocol.
+A janela de conexão da extensão precisa permanecer aberta.
+
+Para instalar: abra `brave://extensions`, ative **Modo do desenvolvedor**, clique
+**Carregar sem compactação** e escolha `brave-extension`. A extensão exige a
+permissão de debugger. **Executar teste** verifica clique confiável e digitação
+numa aba própria em segundo plano. Esse teste passou no Brave instalado neste Mac.
+
+O modo Brave exige Node.js instalado, além da extensão. O helper inicia uma ponte
+WebSocket em `127.0.0.1` com porta aleatória, token por sessão e validação da origem
+da extensão. Ao desconectar a extensão, o mouse é liberado. A aba criada pelo
+Duo é fechada quando a conexão termina; suas abas anteriores não são controladas.
+
+A imagem espelhada atualiza aproximadamente 5 vezes por segundo: ainda não é
+adequada para reprodução de vídeo fluida. A interface nativa de favoritos e
+popups de extensões do Brave não aparece no painel Duo; o conteúdo da página usa
+os logins e extensões do perfil. Não é uma incorporação da janela inteira do Brave.
+
+O ID padrão da extensão corresponde ao caminho de instalação deste Mac.
+Em outro caminho, defina `DUO_BRAVE_EXTENSION_ID` com o ID de `brave://extensions`.
+`DUO_START_BRAVE=1` inicia esse modo automaticamente no lançamento de desenvolvimento.
+
+`npm run check` inclui testes de autenticação/origem da ponte, ordem de conexão,
+encaminhamento de eventos e liberação do debugger. `DUO_TEST_UI=1 npm test` também
+verifica em WKWebView real que o trackpad não envia cliques ao Brave e que eventos
+HID usam coordenadas relativas ao conteúdo. Os testes JavaScript usam APIs simuladas;
+a validação no Brave real é feita pela extensão e pela conexão com o app.
+
+O envio direto de eventos macOS ao PID do Brave não acionou o botão de teste,
+apesar de `CGPreflightPostEventAccess()` retornar `true`; por isso o protótipo usa
+uma extensão. Na validação da ponte, o helper recebeu a imagem do Brave no Dell;
+o processo independente confirmou `exclusiveBlocked: true` durante a captura.

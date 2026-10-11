@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3,
+  "name": "Duo — teste de entrada no Brave",
+  "version": "0.1.0",
+  "description": "Verifica clique e teclado em uma aba de teste em segundo plano, sem alterar suas abas.",
+  "permissions": ["debugger"],
+  "action": { "default_popup": "popup.html" }
+}

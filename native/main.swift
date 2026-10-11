@@ -13,6 +13,7 @@ func report(_ message: String) {
 final class NativeApp: NSObject, NSApplicationDelegate {
   private var browser: BrowserPanel?
   private let mouse = MouseCapture()
+  private var brave: BraveConnection?
   private var watchdog: Timer?
   private let originalParent = getppid()
 
@@ -35,6 +36,7 @@ final class NativeApp: NSObject, NSApplicationDelegate {
     report("Navegador aberto no \(screen.localizedName). Mouse ainda livre.")
     readCommands()
     watchParent()
+    if ProcessInfo.processInfo.environment["DUO_START_BRAVE"] == "1" { openBrave() }
   }
 
   private func readCommands() {
@@ -50,6 +52,7 @@ final class NativeApp: NSObject, NSApplicationDelegate {
   }
 
   private func command(_ text: String) {
+    if text == "brave" { openBrave() }
     if text == "capture" {
       let failure = mouse.start()
       browser?.setCaptureActive(failure == nil)
@@ -84,7 +87,42 @@ final class NativeApp: NSObject, NSApplicationDelegate {
     }
   }
 
-  func applicationWillTerminate(_ notification: Notification) { mouse.stop() }
+  private func openBrave() {
+    guard let browser, brave == nil else { return }
+    do {
+      let connection = try BraveConnection(
+        resources: Bundle.main.resourceURL!, width: Int(browser.web.frame.width),
+        height: Int(browser.web.frame.height))
+      brave = connection
+      browser.onBraveCommand = { [weak connection] kind, x, y, key in
+        connection?.send(kind: kind, x: x, y: y, key: key)
+      }
+      var firstFrame = true
+      connection.onFrame = { [weak self] bytes in
+        self?.browser?.showBraveFrame(bytes)
+        let state = self?.browser?.isCaptureActive == true ? "ativo" : "desativado"
+        self?.browser?.setStatus("Brave do seu perfil · mouse exclusivo \(state) · experimental")
+        if firstFrame {
+          report("Brave conectado ao perfil atual · imagem recebida no Dell")
+          firstFrame = false
+        }
+      }
+      connection.onStatus = { [weak self] status in
+        if status.contains("desconectado") || status.contains("encerrada") {
+          self?.mouse.stop()
+          self?.browser?.setCaptureActive(false)
+        }
+        self?.browser?.setStatus(status)
+        report(status)
+      }
+      connection.start()
+    } catch { report("Falha ao iniciar Brave: \(error.localizedDescription)") }
+  }
+
+  func applicationWillTerminate(_ notification: Notification) {
+    brave?.stop()
+    mouse.stop()
+  }
 }
 
 if CommandLine.arguments.contains("--probe") {
