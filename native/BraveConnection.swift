@@ -4,6 +4,8 @@ final class BraveConnection {
   var onFrame: ((Data) -> Void)?
   var onStatus: ((String) -> Void)?
   var onReady: (() -> Void)?
+  var onTransportClosed: (() -> Void)?
+  var onFixtureProof: ((Bool) -> Void)?
   private let process = Process()
   private let token = UUID().uuidString
   private let extensionID =
@@ -14,12 +16,16 @@ final class BraveConnection {
   private let output = Pipe()
   private let width: Int
   private let height: Int
+  private let initialURL: String
   private var stopped = false
   private var connected = false
 
-  init(resources: URL, width: Int, height: Int) throws {
+  init(resources: URL, width: Int, height: Int, initialURL: String = "https://www.youtube.com")
+    throws
+  {
     self.width = width
     self.height = height
+    self.initialURL = initialURL
     process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
     process.arguments = ["node", resources.appendingPathComponent("brave-bridge.cjs").path]
     var environment = ProcessInfo.processInfo.environment
@@ -75,6 +81,7 @@ final class BraveConnection {
   }
 
   func send(kind: String, x: Double = 0, y: Double = 0, key: Any = "") {
+    if kind == "click" { traceSeatEvent("Native click x=\(x) y=\(y)") }
     write(["kind": kind, "x": x, "y": y, "key": key])
   }
 
@@ -96,7 +103,9 @@ final class BraveConnection {
         case .success:
           self.receive()
         case .failure:
-          self.onStatus?("Brave desconectado. Feche e reabra o navegador Duo.")
+          self.connected = false
+          self.onStatus?("Brave desconectado · clique Usar / reativar meu Brave no controle Duo")
+          self.onTransportClosed?()
         }
       }
     }
@@ -107,7 +116,19 @@ final class BraveConnection {
       let message = try? JSONSerialization.jsonObject(with: bytes) as? [String: Any]
     else { return }
     if message["kind"] as? String == "ready" {
-      write(["kind": "init", "width": width, "height": height, "url": "https://www.youtube.com"])
+      var message: [String: Any] = [
+        "kind": "init", "width": width, "height": height, "url": initialURL,
+      ]
+      if let screen = NSScreen.screens.first(where: { $0.localizedName.contains("DELL") }),
+        let primary = NSScreen.screens.first
+      {
+        message["windowBounds"] = [
+          "left": Int(screen.frame.minX),
+          "top": Int(primary.frame.maxY - screen.frame.maxY), "width": Int(screen.frame.width),
+          "height": Int(screen.frame.height),
+        ]
+      }
+      write(message)
     }
     if connected, message["kind"] as? String == "frame", let image = message["image"] as? String,
       let data = Data(base64Encoded: image)
@@ -119,11 +140,22 @@ final class BraveConnection {
     }
     if message["kind"] as? String == "detached" {
       connected = false
-      onStatus?("Brave desconectado · clique Usar / reativar meu Brave no controle Duo")
+      let detail =
+        message["message"] as? String ?? message["reason"] as? String ?? "sem motivo informado"
+      onStatus?("Brave desconectado (\(detail)) · clique Usar / reativar meu Brave no controle Duo")
     }
     if message["kind"] as? String == "connected" {
       connected = true
       onReady?()
+    }
+    if message["kind"] as? String == "fixtureProof" {
+      onFixtureProof?(message["passed"] as? Bool == true)
+    }
+    if message["kind"] as? String == "youtubeProof" {
+      onFixtureProof?(message["passed"] as? Bool == true)
+    }
+    if message["kind"] as? String == "inputAck" {
+      traceSeatEvent("Brave received click")
     }
   }
 

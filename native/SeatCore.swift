@@ -1,5 +1,19 @@
 import Foundation
 
+func traceSeatEvent(_ message: String) {
+  guard let path = ProcessInfo.processInfo.environment["DUO_INPUT_TRACE"] else { return }
+  if !FileManager.default.fileExists(atPath: path) {
+    FileManager.default.createFile(
+      atPath: path, contents: nil, attributes: [.posixPermissions: 0o600])
+  }
+  guard let file = FileHandle(forWritingAtPath: path),
+    let bytes = (message + "\n").data(using: .utf8)
+  else { return }
+  defer { try? file.close() }
+  _ = try? file.seekToEnd()
+  try? file.write(contentsOf: bytes)
+}
+
 struct SeatCursor {
   var x: Double
   var y: Double

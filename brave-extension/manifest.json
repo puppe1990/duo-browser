@@ -4,5 +4,6 @@
   "version": "0.1.0",
   "description": "Verifica clique e teclado em uma aba de teste em segundo plano, sem alterar suas abas.",
   "permissions": ["debugger"],
+  "background": { "service_worker": "background.js" },
   "action": { "default_popup": "popup.html" }
 }

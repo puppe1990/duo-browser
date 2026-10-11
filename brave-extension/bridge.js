@@ -1,8 +1,7 @@
-/* global chrome, BraveSession */
-async function connectDuoBridge() {
-  const query = new URLSearchParams(location.search);
-  const port = Number(query.get('bridge'));
-  const token = query.get('token');
+/* global chrome, BraveSession, BraveInputQueue */
+async function connectDuoBridge(configuration) {
+  const port = Number(configuration.bridge);
+  const token = configuration.token;
   if (
     !Number.isInteger(port) ||
     port < 1 ||
@@ -12,8 +11,10 @@ async function connectDuoBridge() {
     return;
   const socket = new WebSocket(`ws://127.0.0.1:${port}/${token}/extension`);
   const status = (text) => {
-    document.querySelector('#status').textContent = text;
-    document.title = text;
+    if (typeof document !== 'undefined') {
+      document.querySelector('#status').textContent = text;
+      document.title = text;
+    }
   };
   status('Conectando ao Duo…');
   socket.onerror = () => status('Falha ao conectar WebSocket local do Duo');
@@ -27,56 +28,76 @@ async function connectDuoBridge() {
       socket.send(JSON.stringify(message));
   };
   const command = (method, params = {}) => session.command(method, params);
-  const detached = (reason) => {
+  const detached = (reason, message = '') => {
     clearInterval(timer);
     status('Brave desconectado; clique “Usar / reativar meu Brave” no Duo');
-    send({ kind: 'detached', reason });
+    send({ kind: 'detached', reason, message });
   };
   async function activate() {
     await session.attach();
     await command('Page.enable');
     await command('Emulation.setDeviceMetricsOverride', dimensions);
+    await command('Emulation.setFocusEmulationEnabled', { enabled: true });
     clearInterval(timer);
     timer = setInterval(capture, 200);
     status('Brave conectado ao Duo');
     send({ kind: 'connected' });
   }
   socket.onopen = () => status('Conectado ao Duo; aguardando aba');
-  let sequence = Promise.resolve();
-  socket.onmessage = (event) => {
-    sequence = sequence.then(async () => {
-      try {
-        const message = JSON.parse(event.data);
-        if (message.kind === 'init' && !target) {
-          const tab = await chrome.tabs.create({
-            url: message.url,
-            active: false,
-          });
-          target = { tabId: tab.id };
-          session = new BraveSession(chrome.debugger, tab.id, detached);
-          dimensions = {
-            width: message.width,
-            height: message.height,
-            deviceScaleFactor: 1,
-            mobile: false,
-          };
-          await activate();
-          return;
-        }
-        if (message.kind === 'reconnect' && session) {
-          await activate();
-          return;
-        }
-        if (target && session.attached)
-          await dispatchDuoInput(message, command);
-      } catch (error) {
-        if (session?.attached) {
-          status(`Brave: ${error.message}`);
-          send({ kind: 'error', message: error.message });
-        } else detached('attach_failed');
+  const inputQueue = new BraveInputQueue(async (message) => {
+    try {
+      if (message.kind === 'init' && !target) {
+        const window = await chrome.windows.create({
+          url: message.url,
+          focused: false,
+          ...message.windowBounds,
+        });
+        const tab = window.tabs[0];
+        target = { tabId: tab.id };
+        session = new BraveSession(chrome.debugger, tab.id, detached);
+        dimensions = {
+          width: message.width,
+          height: message.height,
+          deviceScaleFactor: 1,
+          mobile: false,
+        };
+        await activate();
+        return;
       }
-    });
-  };
+      if (message.kind === 'reconnect' && session) {
+        await activate();
+        return;
+      }
+      if (message.kind === 'fixtureProof' && session?.attached) {
+        const proof = await command('Runtime.evaluate', {
+          expression: `location.protocol === 'chrome-extension:' && location.pathname === '/fixture.html'
+              && document.body.dataset.trustedClick === 'true' && document.querySelector('#fixture').value === 'duo'`,
+          returnByValue: true,
+        });
+        send({ kind: 'fixtureProof', passed: proof.result.value === true });
+        return;
+      }
+      if (message.kind === 'youtubeProof' && session?.attached) {
+        const proof = await command('Runtime.evaluate', {
+          expression: `location.hostname === 'www.youtube.com' && document.activeElement.tagName === 'INPUT'
+              && document.activeElement.value === 'duo'`,
+          returnByValue: true,
+        });
+        send({ kind: 'youtubeProof', passed: proof.result.value === true });
+        return;
+      }
+      if (target && session.attached) {
+        await dispatchDuoInput(message, command);
+        if (message.kind === 'click') send({ kind: 'inputAck' });
+      }
+    } catch (error) {
+      if (session?.attached) {
+        status(`Brave: ${error.message}`);
+        send({ kind: 'error', message: error.message });
+      } else detached('attach_failed', error.message);
+    }
+  });
+  socket.onmessage = (event) => inputQueue.push(JSON.parse(event.data));
   async function capture() {
     if (capturing || !session?.attached) return;
     capturing = true;
@@ -94,8 +115,7 @@ async function connectDuoBridge() {
   }
   socket.onclose = async () => {
     clearInterval(timer);
-    document.querySelector('#status').textContent =
-      'Duo desconectado. Pode fechar esta janela.';
+    status('Duo desconectado');
     if (target) {
       await session?.close();
       await chrome.tabs.remove(target.tabId).catch(() => {});
@@ -147,9 +167,30 @@ async function dispatchDuoInput(message, command) {
   }
 }
 
-if (typeof module !== 'undefined') module.exports = { dispatchDuoInput };
-if (
-  typeof location !== 'undefined' &&
-  new URLSearchParams(location.search).has('bridge')
-)
-  connectDuoBridge();
+if (typeof module !== 'undefined')
+  module.exports = { dispatchDuoInput, connectDuoBridge };
+async function bootstrapDuo() {
+  const configuration = Object.fromEntries(
+    new URLSearchParams(location.search),
+  );
+  if (configuration.reload === '1') {
+    chrome.runtime.reload();
+    return;
+  }
+  if (!configuration.bridge) return;
+  try {
+    const tab = await chrome.tabs.getCurrent();
+    const response = await chrome.runtime.sendMessage({
+      ...configuration,
+      type: 'duo-connect',
+    });
+    if (response.error) throw new Error(response.error);
+    await chrome.tabs.remove(tab.id);
+  } catch (error) {
+    document.querySelector('#status').textContent =
+      `Falha ao iniciar Duo: ${error.message}`;
+  }
+}
+
+if (typeof document !== 'undefined' && typeof location !== 'undefined')
+  bootstrapDuo();

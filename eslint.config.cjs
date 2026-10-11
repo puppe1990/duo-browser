@@ -14,6 +14,7 @@ module.exports = [
       'brave-extension/protocol.js',
       'brave-extension/bridge.js',
       'brave-extension/debugger-session.js',
+      'brave-extension/input-queue.js',
     ],
     languageOptions: { globals: { module: 'readonly' } },
   },

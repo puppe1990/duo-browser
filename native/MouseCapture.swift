@@ -39,6 +39,11 @@ final class MouseCapture {
         guard let pointer else { return }
         let capture = Unmanaged<MouseCapture>.fromOpaque(pointer).takeUnretainedValue()
         let element = IOHIDValueGetElement(value)
+        if IOHIDElementGetUsagePage(element) == 9 {
+          traceSeatEvent(
+            "HID button usage=\(IOHIDElementGetUsage(element)) value=\(IOHIDValueGetIntegerValue(value))"
+          )
+        }
         capture.onValue?(
           IOHIDElementGetUsagePage(element),
           IOHIDElementGetUsage(element), IOHIDValueGetIntegerValue(value))

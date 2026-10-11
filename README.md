@@ -92,7 +92,9 @@ A extensão `brave-extension/` permite controlar uma nova aba do Brave no perfil
 onde está instalada. No controle Duo, use **Usar / reativar meu Brave**.
 O YouTube abre no Brave, usando a sessão desse perfil; o Duo espelha a imagem
 no Dell e encaminha o mouse HID e o teclado virtual via Chrome DevTools Protocol.
-A janela de conexão da extensão precisa permanecer aberta.
+A conexão fica no segundo plano da extensão. A janela auxiliar de inicialização
+fecha automaticamente; a aba controlada fica em uma janela própria no Dell.
+Fechar a janela auxiliar não interrompe o mouse.
 
 Se o Brave encerrar o debugger da aba (por exemplo, ao cancelar o aviso de
 depuração), o Duo oculta a imagem congelada, libera o mouse e informa a desconexão.
@@ -126,6 +128,17 @@ encaminhamento de eventos e liberação do debugger. `DUO_TEST_UI=1 npm test` ta
 verifica em WKWebView real que o trackpad não envia cliques ao Brave e que eventos
 HID usam coordenadas relativas ao conteúdo. Os testes JavaScript usam APIs simuladas;
 a validação no Brave real é feita pela extensão e pela conexão com o app.
+
+`DUO_TEST_BRAVE=1 npm test` verifica o caminho completo em uma aba de teste e no
+campo de busca do YouTube: cursor/clique HID simulados no painel nativo, teclado
+virtual, WebSocket e Brave real. Envia uma rajada de 100 movimentos antes do clique.
+Exige a extensão instalada neste perfil e o Dell conectado; não depende da captura
+física do mouse. A fila de cliques e teclas não espera callbacks de hover; os
+movimentos pendentes são agrupados, mantendo apenas o mais recente.
+
+Para diagnosticar o botão físico, defina `DUO_INPUT_TRACE=/tmp/duo-click.log` no
+lançamento de desenvolvimento. Registra apenas sinais de botão, coordenadas do
+clique e confirmação do Brave, sem texto digitado ou conteúdo de páginas.
 
 O envio direto de eventos macOS ao PID do Brave não acionou o botão de teste,
 apesar de `CGPreflightPostEventAccess()` retornar `true`; por isso o protótipo usa
