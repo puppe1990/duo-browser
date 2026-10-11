@@ -98,6 +98,11 @@ final class NativeApp: NSObject, NSApplicationDelegate {
         resources: Bundle.main.resourceURL!, width: Int(browser.web.frame.width),
         height: Int(browser.web.frame.height))
       brave = connection
+      connection.onTransportClosed = { [weak self, weak connection] in
+        guard self?.brave === connection else { return }
+        connection?.stop()
+        self?.brave = nil
+      }
       connection.onReady = { [weak self] in self?.command("capture") }
       browser.onBraveCommand = { [weak connection] kind, x, y, key in
         connection?.send(kind: kind, x: x, y: y, key: key)
