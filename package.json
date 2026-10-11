@@ -1,0 +1,1 @@
+{"name":"duo-browser","version":"0.1.0","private":true,"scripts":{"test":"bash scripts/test.sh","native":"bash scripts/build-native.sh","build":"npm run native && tauri build --bundles app","dev":"npm run native && tauri dev"},"devDependencies":{"@tauri-apps/cli":"^2.0.0"}}
