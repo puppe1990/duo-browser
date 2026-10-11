@@ -3,6 +3,7 @@ import AppKit
 final class BraveConnection {
   var onFrame: ((Data) -> Void)?
   var onStatus: ((String) -> Void)?
+  var onReady: (() -> Void)?
   private let process = Process()
   private let token = UUID().uuidString
   private let extensionID =
@@ -14,6 +15,7 @@ final class BraveConnection {
   private let width: Int
   private let height: Int
   private var stopped = false
+  private var connected = false
 
   init(resources: URL, width: Int, height: Int) throws {
     self.width = width
@@ -107,13 +109,21 @@ final class BraveConnection {
     if message["kind"] as? String == "ready" {
       write(["kind": "init", "width": width, "height": height, "url": "https://www.youtube.com"])
     }
-    if message["kind"] as? String == "frame", let image = message["image"] as? String,
+    if connected, message["kind"] as? String == "frame", let image = message["image"] as? String,
       let data = Data(base64Encoded: image)
     {
       onFrame?(data)
     }
     if message["kind"] as? String == "error", let error = message["message"] as? String {
       onStatus?("Brave: \(error)")
+    }
+    if message["kind"] as? String == "detached" {
+      connected = false
+      onStatus?("Brave desconectado · clique Usar / reativar meu Brave no controle Duo")
+    }
+    if message["kind"] as? String == "connected" {
+      connected = true
+      onReady?()
     }
   }
 

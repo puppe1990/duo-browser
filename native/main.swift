@@ -88,12 +88,17 @@ final class NativeApp: NSObject, NSApplicationDelegate {
   }
 
   private func openBrave() {
-    guard let browser, brave == nil else { return }
+    if let brave {
+      brave.send(kind: "reconnect")
+      return
+    }
+    guard let browser else { return }
     do {
       let connection = try BraveConnection(
         resources: Bundle.main.resourceURL!, width: Int(browser.web.frame.width),
         height: Int(browser.web.frame.height))
       brave = connection
+      connection.onReady = { [weak self] in self?.command("capture") }
       browser.onBraveCommand = { [weak connection] kind, x, y, key in
         connection?.send(kind: kind, x: x, y: y, key: key)
       }
@@ -111,6 +116,7 @@ final class NativeApp: NSObject, NSApplicationDelegate {
         if status.contains("desconectado") || status.contains("encerrada") {
           self?.mouse.stop()
           self?.browser?.setCaptureActive(false)
+          self?.browser?.hideBraveFrame()
         }
         self?.browser?.setStatus(status)
         report(status)
