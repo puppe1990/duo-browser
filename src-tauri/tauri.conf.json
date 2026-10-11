@@ -6,8 +6,22 @@
   "build": { "frontendDist": "../web" },
   "app": {
     "withGlobalTauri": true,
-    "windows": [{ "title": "Duo Browser · Controle", "width": 620, "height": 650, "resizable": false }],
-    "security": { "csp": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src ipc: http://ipc.localhost" }
+    "windows": [
+      {
+        "title": "Duo Browser · Controle",
+        "width": 620,
+        "height": 650,
+        "resizable": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src ipc: http://ipc.localhost"
+    }
   },
-  "bundle": { "active": true, "targets": ["app"], "resources": { "../native/DuoNative.app/": "DuoNative.app/" }, "macOS": { "minimumSystemVersion": "14.0" } }
+  "bundle": {
+    "active": true,
+    "targets": ["app"],
+    "resources": { "../native/DuoNative.app/": "DuoNative.app/" },
+    "macOS": { "minimumSystemVersion": "14.0" }
+  }
 }

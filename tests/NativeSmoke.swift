@@ -16,9 +16,10 @@ final class SmokeApp: NSObject, NSApplicationDelegate {
       let resources = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         .appendingPathComponent("native")
       browser = try BrowserPanel(screen: screen, resourceDirectory: resources)
-      let initialAddresses = browser?.panel.contentView?.subviews.compactMap {
-        ($0 as? NSTextField)?.stringValue
-      } ?? []
+      let initialAddresses =
+        browser?.panel.contentView?.subviews.compactMap {
+          ($0 as? NSTextField)?.stringValue
+        } ?? []
       guard initialAddresses.contains("https://www.youtube.com") else {
         fputs("FAIL: Right browser must start at YouTube\n", stderr)
         exit(1)

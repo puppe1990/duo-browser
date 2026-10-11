@@ -8,7 +8,15 @@ test('control opens browser and starts separation automatically on launch', asyn
   const buttons = new Map();
   const status = { textContent: '' };
   const context = {
-    window: { __TAURI__: { core: { invoke: async (name) => { calls.push(name); } } } },
+    window: {
+      __TAURI__: {
+        core: {
+          invoke: async (name) => {
+            calls.push(name);
+          },
+        },
+      },
+    },
     document: {
       querySelector: (selector) => {
         if (selector === '#status') return status;

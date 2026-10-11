@@ -1,1 +1,28 @@
-{"name":"duo-browser","version":"0.1.0","private":true,"scripts":{"test":"bash scripts/test.sh","native":"bash scripts/build-native.sh","build":"npm run native && tauri build --bundles app","dev":"npm run native && tauri dev"},"devDependencies":{"@tauri-apps/cli":"^2.0.0"}}
+{
+  "name": "duo-browser",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "bash scripts/test.sh",
+    "native": "bash scripts/build-native.sh",
+    "build": "npm run native && tauri build --bundles app",
+    "dev": "npm run native && tauri dev",
+    "prepare": "husky",
+    "test:integration": "DUO_TEST_UI=1 DUO_TEST_HID=1 npm test",
+    "lint": "eslint . --max-warnings 0 && bash scripts/lint-native.sh",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "check": "npm run format:check && npm run lint && npm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@tauri-apps/cli": "^2.0.0",
+    "eslint": "10.12.0",
+    "globals": "17.13.0",
+    "husky": "9.1.7",
+    "prettier": "3.9.10"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}
